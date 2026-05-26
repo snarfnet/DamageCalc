@@ -2,288 +2,242 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = DamageCalcViewModel()
-    @State private var selectedTab = 0
+    @State private var selectedMode: DamageMode = .injury
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                Picker("", selection: $selectedTab) {
-                    Text("入通院").tag(0)
-                    Text("後遺障害").tag(1)
-                    Text("死亡").tag(2)
-                }
-                .pickerStyle(.segmented)
-                .padding()
+            ZStack {
+                LinearGradient(colors: [Color(hex: 0x111827), Color(hex: 0x1E1B4B)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 20) {
-                        switch selectedTab {
-                        case 0: injuryInputSection
-                        case 1: disabilityInputSection
-                        case 2: deathInputSection
-                        default: EmptyView()
-                        }
-
+                    VStack(spacing: 18) {
+                        heroSection
+                        modePicker
+                        inputSection
                         if viewModel.showResult {
                             resultSection
                         }
                     }
-                    .padding()
+                    .padding(18)
+                    .padding(.bottom, 76)
                 }
-
-                BannerAdView(adUnitID: "ca-app-pub-9404799280370656/DAMAGECALC_B")
-                    .frame(height: 50)
             }
             .navigationTitle("損害賠償計算機")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .safeAreaInset(edge: .bottom) {
+                BannerAdView(adUnitID: "ca-app-pub-9404799280370656/DAMAGECALC_B")
+                    .frame(height: 50)
+                    .background(.ultraThinMaterial)
+            }
         }
     }
 
-    private var injuryInputSection: some View {
-        VStack(spacing: 16) {
-            Text("交通事故の入通院慰謝料")
-                .font(.headline)
-
+    private var heroSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("入院期間")
-                    .frame(width: 100, alignment: .leading)
-                TextField("月", text: $viewModel.hospitalizationMonths)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("ヶ月")
-                    .foregroundColor(.secondary)
-            }
-
-            HStack {
-                Text("通院期間")
-                    .frame(width: 100, alignment: .leading)
-                TextField("月", text: $viewModel.outpatientMonths)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("ヶ月")
-                    .foregroundColor(.secondary)
-            }
-
-            HStack {
-                Text("実通院日数")
-                    .frame(width: 100, alignment: .leading)
-                TextField("日", text: $viewModel.actualVisitDays)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("日")
-                    .foregroundColor(.secondary)
-            }
-
-            Picker("怪我の程度", selection: $viewModel.injuryType) {
-                Text("むちうち等（軽症）").tag(InjuryType.mild)
-                Text("骨折等（重症）").tag(InjuryType.severe)
-            }
-            .pickerStyle(.segmented)
-
-            HStack {
-                Text("過失割合")
-                    .frame(width: 100, alignment: .leading)
-                TextField("%", text: $viewModel.faultPercent)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("% (自分の過失)")
-                    .foregroundColor(.secondary)
-            }
-
-            Button(action: { viewModel.calculateInjury() }) {
-                Text("計算する")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.indigo)
-                    .cornerRadius(10)
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 5)
-    }
-
-    private var disabilityInputSection: some View {
-        VStack(spacing: 16) {
-            Text("後遺障害慰謝料")
-                .font(.headline)
-
-            Picker("後遺障害等級", selection: $viewModel.disabilityGrade) {
-                ForEach(1...14, id: \.self) { grade in
-                    Text("第\(grade)級").tag(grade)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("LEGAL ESTIMATE")
+                        .font(.caption.bold())
+                        .foregroundStyle(.orange)
+                    Text("保険会社提示額と弁護士基準の差を見える化")
+                        .font(.system(size: 28, weight: .black))
+                        .foregroundStyle(.white)
                 }
+                Spacer()
+                Image(systemName: "scalemass.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.orange)
             }
 
-            HStack {
-                Text("年収")
-                    .frame(width: 100, alignment: .leading)
-                TextField("万円", text: $viewModel.annualIncome)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 100)
-                Text("万円")
-                    .foregroundColor(.secondary)
-            }
-
-            HStack {
-                Text("年齢")
-                    .frame(width: 100, alignment: .leading)
-                TextField("歳", text: $viewModel.age)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("歳")
-                    .foregroundColor(.secondary)
-            }
-
-            HStack {
-                Text("過失割合")
-                    .frame(width: 100, alignment: .leading)
-                TextField("%", text: $viewModel.faultPercent)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("% (自分の過失)")
-                    .foregroundColor(.secondary)
-            }
-
-            Button(action: { viewModel.calculateDisability() }) {
-                Text("計算する")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.indigo)
-                    .cornerRadius(10)
-            }
+            Text("交通事故の入通院、後遺障害、死亡事故の概算に対応。過失割合も反映します。")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.78))
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 5)
+        .padding(20)
+        .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(.white.opacity(0.12)))
     }
 
-    private var deathInputSection: some View {
-        VStack(spacing: 16) {
-            Text("死亡慰謝料")
-                .font(.headline)
-
-            Picker("被害者の立場", selection: $viewModel.victimRole) {
-                Text("一家の支柱").tag(VictimRole.breadwinner)
-                Text("母親・配偶者").tag(VictimRole.spouse)
-                Text("その他").tag(VictimRole.other)
-            }
-            .pickerStyle(.segmented)
-
-            HStack {
-                Text("年収")
-                    .frame(width: 100, alignment: .leading)
-                TextField("万円", text: $viewModel.annualIncome)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 100)
-                Text("万円")
-                    .foregroundColor(.secondary)
-            }
-
-            HStack {
-                Text("年齢")
-                    .frame(width: 100, alignment: .leading)
-                TextField("歳", text: $viewModel.age)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("歳")
-                    .foregroundColor(.secondary)
-            }
-
-            HStack {
-                Text("過失割合")
-                    .frame(width: 100, alignment: .leading)
-                TextField("%", text: $viewModel.faultPercent)
-                    .keyboardType(.numberPad)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 60)
-                Text("% (自分の過失)")
-                    .foregroundColor(.secondary)
-            }
-
-            Button(action: { viewModel.calculateDeath() }) {
-                Text("計算する")
-                    .font(.headline)
-                    .foregroundColor(.white)
+    private var modePicker: some View {
+        HStack(spacing: 8) {
+            ForEach(DamageMode.allCases) { mode in
+                Button {
+                    selectedMode = mode
+                    viewModel.showResult = false
+                } label: {
+                    VStack(spacing: 8) {
+                        Image(systemName: mode.icon)
+                        Text(mode.title)
+                            .font(.caption.bold())
+                    }
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.indigo)
-                    .cornerRadius(10)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(selectedMode == mode ? .black : .white.opacity(0.74))
+                .background(selectedMode == mode ? .orange : .white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
             }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 5)
+    }
+
+    @ViewBuilder
+    private var inputSection: some View {
+        switch selectedMode {
+        case .injury:
+            formCard(title: "入通院慰謝料") {
+                numberField("入院期間", text: $viewModel.hospitalizationMonths, suffix: "か月")
+                numberField("通院期間", text: $viewModel.outpatientMonths, suffix: "か月")
+                numberField("実通院日数", text: $viewModel.actualVisitDays, suffix: "日")
+                segmented("症状区分", selection: $viewModel.injuryType, values: InjuryType.allCases)
+                numberField("自分の過失", text: $viewModel.faultPercent, suffix: "%")
+                primaryButton("入通院で計算", action: viewModel.calculateInjury)
+            }
+        case .disability:
+            formCard(title: "後遺障害") {
+                Stepper("後遺障害 \(viewModel.disabilityGrade)級", value: $viewModel.disabilityGrade, in: 1...14)
+                    .font(.subheadline.weight(.semibold))
+                numberField("年収", text: $viewModel.annualIncome, suffix: "万円")
+                numberField("年齢", text: $viewModel.age, suffix: "歳")
+                numberField("自分の過失", text: $viewModel.faultPercent, suffix: "%")
+                primaryButton("後遺障害で計算", action: viewModel.calculateDisability)
+            }
+        case .death:
+            formCard(title: "死亡事故") {
+                segmented("被害者の立場", selection: $viewModel.victimRole, values: VictimRole.allCases)
+                numberField("年収", text: $viewModel.annualIncome, suffix: "万円")
+                numberField("年齢", text: $viewModel.age, suffix: "歳")
+                numberField("自分の過失", text: $viewModel.faultPercent, suffix: "%")
+                primaryButton("死亡事故で計算", action: viewModel.calculateDeath)
+            }
+        }
     }
 
     private var resultSection: some View {
-        VStack(spacing: 16) {
-            Text("算定結果")
-                .font(.title2.bold())
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(viewModel.resultTitle)
+                    .font(.title3.bold())
+                Text(viewModel.resultNote)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             VStack(spacing: 12) {
-                resultRow("自賠責基準", viewModel.jibaisekiAmount)
-                resultRow("任意保険基準（推定）", viewModel.insuranceAmount)
-                resultRow("弁護士基準（裁判基準）", viewModel.lawyerAmount)
-
+                amountRow("自賠責基準", viewModel.jibaisekiAmount)
+                amountRow("任意保険基準の目安", viewModel.insuranceAmount)
+                amountRow("弁護士基準", viewModel.lawyerAmount, color: .orange)
                 if viewModel.lostIncome > 0 {
-                    Divider()
-                    resultRow("逸失利益", viewModel.lostIncome)
+                    amountRow("逸失利益", viewModel.lostIncome, color: .purple)
                 }
-
-                Divider()
-
-                HStack {
-                    Text("保険会社提示額との差額目安")
-                        .font(.caption)
-                    Spacer()
-                }
-                Text("弁護士基準は任意保険基準の約\(viewModel.multiplierText)倍")
-                    .font(.headline)
-                    .foregroundColor(.indigo)
             }
-            .padding()
-            .background(Color.indigo.opacity(0.05))
-            .cornerRadius(12)
 
-            Text("※ 本計算は一般的な算定基準に基づく目安です。\n個別事情により金額は変動します。\n正確な金額は弁護士にご相談ください。")
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("上乗せ余地")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                    Text(viewModel.formatCurrency(viewModel.upliftAmount))
+                        .font(.system(size: 28, weight: .black, design: .rounded))
+                }
+                Spacer()
+                Text("約\(viewModel.multiplierText)倍")
+                    .font(.headline.bold())
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.orange.opacity(0.16), in: Capsule())
+                    .foregroundStyle(.orange)
+            }
+            .padding(16)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+
+            Text("この計算は一般的な基準による概算です。実際の請求額は事故状況、証拠、治療経過、後遺障害認定で変わります。重要な判断は弁護士へ相談してください。")
                 .font(.caption2)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 5)
+        .padding(18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
-    private func resultRow(_ label: String, _ amount: Int) -> some View {
+    private func formCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(title)
+                .font(.headline)
+            content()
+        }
+        .padding(18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private func numberField(_ title: String, text: Binding<String>, suffix: String) -> some View {
         HStack {
-            Text(label)
-                .font(.subheadline)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
             Spacer()
-            Text("¥\(formatNumber(amount))")
-                .font(.subheadline.bold())
+            TextField("0", text: text)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+                .font(.headline)
+                .frame(width: 90)
+            Text(suffix)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func segmented<T: Identifiable & Hashable>(_ title: String, selection: Binding<T>, values: [T]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            Picker(title, selection: selection) {
+                ForEach(values) { value in
+                    Text(label(for: value)).tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
         }
     }
 
-    private func formatNumber(_ n: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
+    private func primaryButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: "function")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(.orange)
+    }
+
+    private func amountRow(_ title: String, _ amount: Int, color: Color = .primary) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(viewModel.formatCurrency(amount))
+                .font(.subheadline.bold())
+                .foregroundStyle(color)
+        }
+    }
+
+    private func label<T>(for value: T) -> String {
+        if let value = value as? InjuryType { return value.label }
+        if let value = value as? VictimRole { return value.label }
+        return "\(value)"
+    }
+}
+
+private extension Color {
+    init(hex: UInt) {
+        self.init(
+            red: Double((hex >> 16) & 0xff) / 255,
+            green: Double((hex >> 8) & 0xff) / 255,
+            blue: Double(hex & 0xff) / 255
+        )
     }
 }

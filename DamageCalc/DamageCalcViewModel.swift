@@ -1,17 +1,60 @@
 import SwiftUI
 
-enum InjuryType {
+enum InjuryType: String, CaseIterable, Identifiable {
     case mild
     case severe
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .mild: return "軽傷"
+        case .severe: return "重傷"
+        }
+    }
 }
 
-enum VictimRole {
+enum VictimRole: String, CaseIterable, Identifiable {
     case breadwinner
     case spouse
     case other
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .breadwinner: return "一家の支柱"
+        case .spouse: return "配偶者・母親"
+        case .other: return "その他"
+        }
+    }
 }
 
-class DamageCalcViewModel: ObservableObject {
+enum DamageMode: Int, CaseIterable, Identifiable {
+    case injury
+    case disability
+    case death
+
+    var id: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .injury: return "入通院"
+        case .disability: return "後遺障害"
+        case .death: return "死亡"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .injury: return "cross.case.fill"
+        case .disability: return "figure.walk.motion"
+        case .death: return "scalemass.fill"
+        }
+    }
+}
+
+final class DamageCalcViewModel: ObservableObject {
     @Published var hospitalizationMonths = "0"
     @Published var outpatientMonths = "3"
     @Published var actualVisitDays = "45"
@@ -28,8 +71,9 @@ class DamageCalcViewModel: ObservableObject {
     var lawyerAmount = 0
     var lostIncome = 0
     var multiplierText = "1.5"
+    var resultTitle = "概算結果"
+    var resultNote = "一般的な基準を使った簡易計算です。"
 
-    // 弁護士基準（赤い本）入通院慰謝料 別表I（重傷）万円
     private let severeTable: [[Int]] = [
         [0, 53, 101, 145, 184, 217, 244, 266, 284, 297, 306, 314, 321, 328],
         [35, 98, 139, 177, 210, 236, 260, 279, 295, 306, 314, 322, 329, 334],
@@ -48,7 +92,6 @@ class DamageCalcViewModel: ObservableObject {
         [146, 184, 215, 242, 268, 294, 316, 336, 352, 364, 372, 380, 388, 394]
     ]
 
-    // 弁護士基準（赤い本）入通院慰謝料 別表II（軽傷・むちうち等）万円
     private let mildTable: [[Int]] = [
         [0, 19, 36, 53, 67, 79, 89, 97, 103, 109, 113, 117, 119, 121],
         [35, 52, 69, 83, 95, 105, 113, 119, 125, 129, 133, 135, 137, 139],
@@ -67,26 +110,31 @@ class DamageCalcViewModel: ObservableObject {
         [125, 135, 145, 153, 161, 167, 173, 179, 185, 189, 193, 195, 197, 199]
     ]
 
-    // 後遺障害等級別 弁護士基準慰謝料（万円）
-    private let disabilityLawyerIsharyou: [Int: Int] = [
+    private let disabilityLawyerIsharyou = [
         1: 2800, 2: 2370, 3: 1990, 4: 1670, 5: 1400,
         6: 1180, 7: 1000, 8: 830, 9: 690, 10: 550,
         11: 420, 12: 290, 13: 180, 14: 110
     ]
 
-    // 後遺障害等級別 自賠責基準慰謝料（万円）
-    private let disabilityJibaiseki: [Int: Int] = [
+    private let disabilityJibaiseki = [
         1: 1150, 2: 998, 3: 861, 4: 737, 5: 618,
         6: 512, 7: 419, 8: 331, 9: 249, 10: 190,
         11: 136, 12: 94, 13: 57, 14: 32
     ]
 
-    // 労働能力喪失率
-    private let lossRates: [Int: Double] = [
+    private let lossRates = [
         1: 1.0, 2: 1.0, 3: 1.0, 4: 0.92, 5: 0.79,
         6: 0.67, 7: 0.56, 8: 0.45, 9: 0.35, 10: 0.27,
         11: 0.20, 12: 0.14, 13: 0.09, 14: 0.05
     ]
+
+    var upliftAmount: Int {
+        max(lawyerAmount - insuranceAmount, 0)
+    }
+
+    var totalLawyerSide: Int {
+        lawyerAmount + lostIncome
+    }
 
     func calculateInjury() {
         let hospMonths = min(Int(hospitalizationMonths) ?? 0, 14)
@@ -94,79 +142,47 @@ class DamageCalcViewModel: ObservableObject {
         let visitDays = Int(actualVisitDays) ?? 0
         let fault = Double(Int(faultPercent) ?? 0) / 100.0
 
-        // 自賠責基準: 4,300円 × min(実通院日数×2, 通院期間日数)
         let totalDays = hospMonths * 30 + outMonths * 30
         let jibaisekiDays = min(visitDays * 2 + hospMonths * 30, totalDays)
-        let jibaisekiBase = jibaisekiDays * 4300
+        let jibaisekiBase = jibaisekiDays * 4_300
 
-        // 弁護士基準: 表から読み取り
         let table = injuryType == .mild ? mildTable : severeTable
-        let row = min(hospMonths, table.count - 1)
-        let col = min(outMonths, (table.first?.count ?? 1) - 1)
-        let lawyerBase = table[row][col] * 10000
-
-        // 任意保険基準: 自賠責と弁護士の中間（概算）
+        let lawyerBase = table[min(hospMonths, table.count - 1)][min(outMonths, table[0].count - 1)] * 10_000
         let insuranceBase = Int(Double(jibaisekiBase + lawyerBase) / 2.0 * 0.8)
 
-        // 過失相殺
-        jibaisekiAmount = Int(Double(jibaisekiBase) * (1.0 - fault))
-        insuranceAmount = Int(Double(insuranceBase) * (1.0 - fault))
-        lawyerAmount = Int(Double(lawyerBase) * (1.0 - fault))
-        lostIncome = 0
-
-        if lawyerAmount > 0 && insuranceAmount > 0 {
-            let mult = Double(lawyerAmount) / Double(insuranceAmount)
-            multiplierText = String(format: "%.1f", mult)
-        }
-
-        showResult = true
+        applyFault(jibaiseki: jibaisekiBase, insurance: insuranceBase, lawyer: lawyerBase, lost: 0, fault: fault)
+        resultTitle = "入通院慰謝料の概算"
+        resultNote = "\(injuryType.label)として、入院\(hospMonths)か月・通院\(outMonths)か月で試算しました。"
     }
 
     func calculateDisability() {
         let grade = disabilityGrade
-        let income = (Int(annualIncome) ?? 400) * 10000
+        let income = (Int(annualIncome) ?? 400) * 10_000
         let currentAge = Int(age) ?? 35
         let fault = Double(Int(faultPercent) ?? 0) / 100.0
 
-        let jibaisekiIsharyou = (disabilityJibaiseki[grade] ?? 32) * 10000
-        let lawyerIsharyou = (disabilityLawyerIsharyou[grade] ?? 110) * 10000
-        let insuranceIsharyou = Int(Double(jibaisekiIsharyou + lawyerIsharyou) / 2.0 * 0.8)
+        let jibaisekiBase = (disabilityJibaiseki[grade] ?? 32) * 10_000
+        let lawyerBase = (disabilityLawyerIsharyou[grade] ?? 110) * 10_000
+        let insuranceBase = Int(Double(jibaisekiBase + lawyerBase) / 2.0 * 0.8)
+        let lostBase = Int(Double(income) * (lossRates[grade] ?? 0.05) * leibnizCoefficient(years: max(67 - currentAge, 0)))
 
-        // 逸失利益 = 年収 × 労働能力喪失率 × ライプニッツ係数
-        let lossRate = lossRates[grade] ?? 0.05
-        let yearsToRetirement = max(67 - currentAge, 0)
-        let leibniz = leibnizCoefficient(years: yearsToRetirement)
-        let lostIncomeBase = Int(Double(income) * lossRate * leibniz)
-
-        jibaisekiAmount = Int(Double(jibaisekiIsharyou) * (1.0 - fault))
-        insuranceAmount = Int(Double(insuranceIsharyou) * (1.0 - fault))
-        lawyerAmount = Int(Double(lawyerIsharyou) * (1.0 - fault))
-        lostIncome = Int(Double(lostIncomeBase) * (1.0 - fault))
-
-        if lawyerAmount > 0 && insuranceAmount > 0 {
-            let mult = Double(lawyerAmount) / Double(insuranceAmount)
-            multiplierText = String(format: "%.1f", mult)
-        }
-
-        showResult = true
+        applyFault(jibaiseki: jibaisekiBase, insurance: insuranceBase, lawyer: lawyerBase, lost: lostBase, fault: fault)
+        resultTitle = "後遺障害 \(grade)級の概算"
+        resultNote = "年収\(annualIncome)万円、\(currentAge)歳として逸失利益も試算しました。"
     }
 
     func calculateDeath() {
-        let income = (Int(annualIncome) ?? 400) * 10000
+        let income = (Int(annualIncome) ?? 400) * 10_000
         let currentAge = Int(age) ?? 35
         let fault = Double(Int(faultPercent) ?? 0) / 100.0
 
-        // 死亡慰謝料
-        let lawyerIsharyou: Int
+        let lawyerBase: Int
         switch victimRole {
-        case .breadwinner: lawyerIsharyou = 28000000
-        case .spouse: lawyerIsharyou = 25000000
-        case .other: lawyerIsharyou = 20000000
+        case .breadwinner: lawyerBase = 28_000_000
+        case .spouse: lawyerBase = 25_000_000
+        case .other: lawyerBase = 20_000_000
         }
-        let jibaisekiIsharyou = 4000000 // 自賠責: 本人400万
-        let insuranceIsharyou = Int(Double(jibaisekiIsharyou + lawyerIsharyou) / 2.0 * 0.7)
 
-        // 逸失利益 = 年収 × (1-生活費控除率) × ライプニッツ係数
         let livingExpenseRate: Double
         switch victimRole {
         case .breadwinner: livingExpenseRate = 0.35
@@ -174,26 +190,39 @@ class DamageCalcViewModel: ObservableObject {
         case .other: livingExpenseRate = 0.50
         }
 
-        let yearsToRetirement = max(67 - currentAge, 0)
-        let leibniz = leibnizCoefficient(years: yearsToRetirement)
-        let lostIncomeBase = Int(Double(income) * (1.0 - livingExpenseRate) * leibniz)
+        let jibaisekiBase = 4_000_000
+        let insuranceBase = Int(Double(jibaisekiBase + lawyerBase) / 2.0 * 0.7)
+        let lostBase = Int(Double(income) * (1.0 - livingExpenseRate) * leibnizCoefficient(years: max(67 - currentAge, 0)))
 
-        jibaisekiAmount = Int(Double(jibaisekiIsharyou) * (1.0 - fault))
-        insuranceAmount = Int(Double(insuranceIsharyou) * (1.0 - fault))
-        lawyerAmount = Int(Double(lawyerIsharyou) * (1.0 - fault))
-        lostIncome = Int(Double(lostIncomeBase) * (1.0 - fault))
+        applyFault(jibaiseki: jibaisekiBase, insurance: insuranceBase, lawyer: lawyerBase, lost: lostBase, fault: fault)
+        resultTitle = "死亡慰謝料・逸失利益の概算"
+        resultNote = "\(victimRole.label)、年収\(annualIncome)万円、\(currentAge)歳として試算しました。"
+    }
 
-        if lawyerAmount > 0 && insuranceAmount > 0 {
-            let mult = Double(lawyerAmount) / Double(insuranceAmount)
-            multiplierText = String(format: "%.1f", mult)
+    func formatCurrency(_ amount: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "JPY"
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: amount)) ?? "¥\(amount)"
+    }
+
+    private func applyFault(jibaiseki: Int, insurance: Int, lawyer: Int, lost: Int, fault: Double) {
+        let rate = max(0, 1.0 - fault)
+        jibaisekiAmount = Int(Double(jibaiseki) * rate)
+        insuranceAmount = Int(Double(insurance) * rate)
+        lawyerAmount = Int(Double(lawyer) * rate)
+        lostIncome = Int(Double(lost) * rate)
+
+        if insuranceAmount > 0 {
+            multiplierText = String(format: "%.1f", Double(lawyerAmount) / Double(insuranceAmount))
         }
-
         showResult = true
     }
 
     private func leibnizCoefficient(years: Int) -> Double {
         guard years > 0 else { return 0 }
-        let rate = 0.03 // 民法改正後の法定利率3%
+        let rate = 0.03
         return (1.0 - pow(1.0 + rate, Double(-years))) / rate
     }
 }
