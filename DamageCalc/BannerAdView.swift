@@ -13,7 +13,7 @@ struct BannerAdView: UIViewRepresentable {
     func updateUIView(_ uiView: GADBannerView, context: Context) {
         if uiView.rootViewController == nil,
            let windowScene = uiView.window?.windowScene,
-           let root = windowScene.windows.first?.rootViewController {
+           let root = windowScene.keyWindow?.rootViewController {
             uiView.rootViewController = root
             uiView.load(GADRequest())
         }
