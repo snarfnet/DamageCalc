@@ -3,6 +3,11 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var viewModel = DamageCalcViewModel()
     @State private var selectedMode: DamageMode = .injury
+    let screenshotMode: Bool
+
+    init(screenshotMode: Bool = false) {
+        self.screenshotMode = screenshotMode
+    }
 
     var body: some View {
         NavigationStack {
@@ -30,6 +35,13 @@ struct ContentView: View {
                 BannerAdView(adUnitID: "ca-app-pub-9404799280370656/2825229648")
                     .frame(height: 50)
                     .background(.ultraThinMaterial)
+            }
+            .task {
+                guard screenshotMode else { return }
+                viewModel.hospitalizationMonths = "2"
+                viewModel.outpatientMonths = "6"
+                viewModel.actualVisitDays = "80"
+                viewModel.calculateInjury()
             }
         }
     }

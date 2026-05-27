@@ -1,0 +1,80 @@
+name: Take Screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Select Xcode
+      run: |
+        XCODE_APP=$(ls /Applications/ | grep -E "^Xcode_2[6-9]|^Xcode_[3-9][0-9]" | sort -V | tail -1)
+        if [ -n "$XCODE_APP" ]; then
+          sudo xcode-select -s "/Applications/$XCODE_APP"
+        else
+          XCODE_APP=$(ls /Applications/ | grep "^Xcode_" | sort -V | tail -1)
+          sudo xcode-select -s "/Applications/$XCODE_APP"
+        fi
+        xcodebuild -version
+
+    - name: Install XcodeGen
+      run: brew install xcodegen
+
+    - name: Generate Xcode project
+      run: xcodegen generate
+
+    - name: Build for Simulator
+      run: |
+        xcodebuild build \
+          -scheme DamageCalc \
+          -configuration Debug \
+          -destination "platform=iOS Simulator,name=iPhone 16 Pro Max" \
+          -derivedDataPath build/DerivedData \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
+
+    - name: Boot Simulator
+      run: |
+        UDID=$(xcrun simctl list devices available | grep "iPhone 16 Pro Max" | head -1 | grep -E -o '\([A-F0-9-]{36}\)' | tr -d '()')
+        echo "SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+        xcrun simctl boot "$UDID" || true
+        xcrun simctl bootstatus "$UDID" -b
+
+    - name: Install app
+      run: |
+        APP_PATH=$(find build/DerivedData -name "DamageCalc.app" -type d | head -1)
+        xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+
+    - name: Take screenshot 1 - injury results
+      run: |
+        xcrun simctl launch "$SIMULATOR_UDID" com.tokyonasu.damagecalc SCREENSHOT_MODE
+        sleep 5
+        xcrun simctl io "$SIMULATOR_UDID" screenshot screenshot_01_injury.png
+
+    - name: Take screenshot 2 - injury results scrolled
+      run: |
+        xcrun simctl io "$SIMULATOR_UDID" screenshot screenshot_02_injury_result.png
+
+    - name: Terminate and relaunch for screenshot 3
+      run: |
+        xcrun simctl terminate "$SIMULATOR_UDID" com.tokyonasu.damagecalc || true
+        xcrun simctl launch "$SIMULATOR_UDID" com.tokyonasu.damagecalc SCREENSHOT_MODE
+        sleep 5
+        xcrun simctl io "$SIMULATOR_UDID" screenshot screenshot_03_injury_full.png
+
+    - name: Resize screenshots to 1290x2796
+      run: |
+        for f in screenshot_01_injury.png screenshot_02_injury_result.png screenshot_03_injury_full.png; do
+          sips -z 2796 1290 "$f" || true
+        done
+
+    - name: Upload screenshots
+      uses: actions/upload-artifact@v4
+      with:
+        name: screenshots
+        path: screenshot_*.png

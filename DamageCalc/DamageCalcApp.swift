@@ -6,8 +6,9 @@ import AppTrackingTransparency
 struct DamageCalcApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(screenshotMode: CommandLine.arguments.contains("SCREENSHOT_MODE"))
                 .onAppear {
+                    guard !CommandLine.arguments.contains("SCREENSHOT_MODE") else { return }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         ATTrackingManager.requestTrackingAuthorization { _ in
                             DispatchQueue.main.async {
