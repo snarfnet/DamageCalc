@@ -27,7 +27,7 @@ jobs:
     - name: Generate Xcode project
       run: xcodegen generate
 
-    - name: Build for Simulator
+    - name: Build for iPhone Simulator
       run: |
         xcodebuild build \
           -scheme DamageCalc \
@@ -38,43 +38,56 @@ jobs:
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO
 
-    - name: Boot Simulator
+    - name: Build for iPad Simulator
+      run: |
+        xcodebuild build \
+          -scheme DamageCalc \
+          -configuration Debug \
+          -destination "platform=iOS Simulator,name=iPad Pro 13-inch (M4)" \
+          -derivedDataPath build/DerivedDataiPad \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
+
+    - name: Boot iPhone Simulator
       run: |
         UDID=$(xcrun simctl list devices available | grep "iPhone 16 Pro Max" | head -1 | grep -E -o '\([A-F0-9-]{36}\)' | tr -d '()')
-        echo "SIMULATOR_UDID=$UDID" >> $GITHUB_ENV
+        echo "IPHONE_UDID=$UDID" >> $GITHUB_ENV
         xcrun simctl boot "$UDID" || true
         xcrun simctl bootstatus "$UDID" -b
 
-    - name: Install app
+    - name: Install and screenshot iPhone
       run: |
-        APP_PATH=$(find build/DerivedData -name "DamageCalc.app" -type d | head -1)
-        xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+        APP_PATH=$(find build/DerivedData -name "DamageCalc.app" -path "*/iphonesimulator/*" -type d | head -1)
+        xcrun simctl install "$IPHONE_UDID" "$APP_PATH"
+        xcrun simctl launch "$IPHONE_UDID" com.tokyonasu.damagecalc SCREENSHOT_MODE
+        sleep 8
+        xcrun simctl io "$IPHONE_UDID" screenshot screenshots/iphone_67.png
+        # Swipe up to show results
+        xcrun simctl io "$IPHONE_UDID" swipe up
+        sleep 2
+        xcrun simctl io "$IPHONE_UDID" screenshot screenshots/iphone_67_result.png
 
-    - name: Take screenshot 1 - injury results
+    - name: Boot iPad Simulator
       run: |
-        xcrun simctl launch "$SIMULATOR_UDID" com.tokyonasu.damagecalc SCREENSHOT_MODE
-        sleep 5
-        xcrun simctl io "$SIMULATOR_UDID" screenshot screenshot_01_injury.png
+        UDID=$(xcrun simctl list devices available | grep "iPad Pro 13-inch" | head -1 | grep -E -o '\([A-F0-9-]{36}\)' | tr -d '()')
+        echo "IPAD_UDID=$UDID" >> $GITHUB_ENV
+        xcrun simctl boot "$UDID" || true
+        xcrun simctl bootstatus "$UDID" -b
 
-    - name: Take screenshot 2 - injury results scrolled
+    - name: Install and screenshot iPad
       run: |
-        xcrun simctl io "$SIMULATOR_UDID" screenshot screenshot_02_injury_result.png
-
-    - name: Terminate and relaunch for screenshot 3
-      run: |
-        xcrun simctl terminate "$SIMULATOR_UDID" com.tokyonasu.damagecalc || true
-        xcrun simctl launch "$SIMULATOR_UDID" com.tokyonasu.damagecalc SCREENSHOT_MODE
-        sleep 5
-        xcrun simctl io "$SIMULATOR_UDID" screenshot screenshot_03_injury_full.png
-
-    - name: Resize screenshots to 1290x2796
-      run: |
-        for f in screenshot_01_injury.png screenshot_02_injury_result.png screenshot_03_injury_full.png; do
-          sips -z 2796 1290 "$f" || true
-        done
+        APP_PATH=$(find build/DerivedDataiPad -name "DamageCalc.app" -path "*/iphonesimulator/*" -type d | head -1)
+        xcrun simctl install "$IPAD_UDID" "$APP_PATH"
+        xcrun simctl launch "$IPAD_UDID" com.tokyonasu.damagecalc SCREENSHOT_MODE
+        sleep 8
+        xcrun simctl io "$IPAD_UDID" screenshot screenshots/ipad_129.png
+        xcrun simctl io "$IPAD_UDID" swipe up
+        sleep 2
+        xcrun simctl io "$IPAD_UDID" screenshot screenshots/ipad_129_result.png
 
     - name: Upload screenshots
       uses: actions/upload-artifact@v4
       with:
         name: screenshots
-        path: screenshot_*.png
+        path: screenshots/
