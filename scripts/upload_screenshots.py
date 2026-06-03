@@ -101,5 +101,8 @@ for loc in locs:
     path_67 = os.path.join(screenshot_dir, 'iphone_67.png')
     if os.path.exists(path_67):
         upload_screenshot(loc_id, 'APP_IPHONE_67', path_67)
+    path_ipad = os.path.join(screenshot_dir, 'ipad_129.png')
+    if os.path.exists(path_ipad):
+        upload_screenshot(loc_id, 'APP_IPAD_PRO_3GEN_129', path_ipad)
 
 print('Done!')
