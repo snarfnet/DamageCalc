@@ -108,9 +108,9 @@ jobs:
 
     - name: Upload to App Store Connect
       env:
-        ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        ASC_API_KEY_CONTENT: ${{ secrets.ASC_API_KEY_CONTENT }}
       run: |
-        echo "$ASC_KEY_P8" > /tmp/asc_key.p8
+        echo "$ASC_API_KEY_CONTENT" | base64 -D > /tmp/asc_key.p8
         pip install PyJWT requests cryptography
         python scripts/upload_screenshots.py screenshots
         rm /tmp/asc_key.p8
