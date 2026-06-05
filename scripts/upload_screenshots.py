@@ -4,7 +4,8 @@ KEY_ID = 'WDXGY9WX55'
 ISSUER = '2be0734f-943a-4d61-9dc9-5d9045c46fec'
 APP_ID = '6773144868'
 
-p8 = open('/tmp/asc_key.p8').read()
+p8_env = os.environ.get('ASC_KEY_P8', '')
+p8 = p8_env.replace('\\n', '\n') if p8_env else open('/tmp/asc_key.p8').read()
 
 def make_token():
     return jwt.encode(
