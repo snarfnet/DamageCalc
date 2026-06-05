@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd C:/Users/Windows/DamageCalc && python << 'PYEOF'\\nimport jwt, time, requests, os, json\\n\\nKEY_ID = 'WDXGY9WX55'\\nISSUER = '2be0734f-943a-4d61-9dc9-5d9045c46fec'\\nAPP_ID = '6773144868'\\n...",
+  "error": "Exit code 1\nCancel d0996b12-7249-4155-8ee4-55715a95ff69: 409\r\nCancel 1909ad95-c237-496d-a43e-724119a17bdc: 409\r\nCancel c691fea3-ff53-4ce4-86cd-0a192591d11c: 409\r\nCancel 1c9a8a72-6ead-4713-9d6e-57ce7ef8412f: 409\r\n\r\nCreate: 409\r\n{\r\n  \"errors\" : [ {\r\n    \"id\" : \"0ea44ed2-b803-4dcb-8200-77c2584256b2\",\r\n    \"status\" : \"409\",\r\n    \"code\" : \"STATE_ERROR.ENTITY_STATE_INVALID\",\r\n    \"title\" : \"apps with id '6773144868' is not in valid state.\",\r\n    \"detail\" : \"This resource cannot be reviewed, please che...",
+  "timestamp": "2026-06-04T03:42:21.257Z",
+  "retry_count": 3
+}

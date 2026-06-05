@@ -3,10 +3,10 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var viewModel = DamageCalcViewModel()
     @State private var selectedMode: DamageMode = .injury
-    let screenshotMode: Bool
+    let screenshotIndex: Int
 
-    init(screenshotMode: Bool = false) {
-        self.screenshotMode = screenshotMode
+    init(screenshotIndex: Int = 0) {
+        self.screenshotIndex = screenshotIndex
     }
 
     var body: some View {
@@ -37,11 +37,27 @@ struct ContentView: View {
                     .background(.ultraThinMaterial)
             }
             .task {
-                guard screenshotMode else { return }
-                viewModel.hospitalizationMonths = "2"
-                viewModel.outpatientMonths = "6"
-                viewModel.actualVisitDays = "80"
-                viewModel.calculateInjury()
+                guard screenshotIndex > 0 else { return }
+                switch screenshotIndex {
+                case 2:
+                    selectedMode = .disability
+                    viewModel.disabilityGrade = 9
+                    viewModel.annualIncome = "400"
+                    viewModel.age = "38"
+                    viewModel.faultPercent = "0"
+                    viewModel.calculateDisability()
+                case 3:
+                    selectedMode = .death
+                    viewModel.annualIncome = "500"
+                    viewModel.age = "42"
+                    viewModel.faultPercent = "10"
+                    viewModel.calculateDeath()
+                default:
+                    viewModel.hospitalizationMonths = "2"
+                    viewModel.outpatientMonths = "6"
+                    viewModel.actualVisitDays = "80"
+                    viewModel.calculateInjury()
+                }
             }
         }
     }

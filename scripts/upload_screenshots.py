@@ -98,11 +98,13 @@ for loc in locs:
     loc_id = loc['id']
     locale = loc['attributes']['locale']
     print(f'Processing locale: {locale}')
-    path_67 = os.path.join(screenshot_dir, 'iphone_67.png')
-    if os.path.exists(path_67):
-        upload_screenshot(loc_id, 'APP_IPHONE_67', path_67)
-    path_ipad = os.path.join(screenshot_dir, 'ipad_129.png')
-    if os.path.exists(path_ipad):
-        upload_screenshot(loc_id, 'APP_IPAD_PRO_3GEN_129', path_ipad)
+    for i in ['1', '2', '3', '']:
+        suffix = f'_{i}' if i else ''
+        p67 = os.path.join(screenshot_dir, f'iphone_67{suffix}.png')
+        if os.path.exists(p67):
+            upload_screenshot(loc_id, 'APP_IPHONE_67', p67)
+        pipad = os.path.join(screenshot_dir, f'ipad_129{suffix}.png')
+        if os.path.exists(pipad):
+            upload_screenshot(loc_id, 'APP_IPAD_PRO_3GEN_129', pipad)
 
 print('Done!')

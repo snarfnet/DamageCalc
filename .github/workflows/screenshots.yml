@@ -55,16 +55,20 @@ jobs:
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO
 
-    - name: Take iPhone Screenshot
+    - name: Take iPhone Screenshots
       run: |
         xcrun simctl boot "$IPHONE_ID" || true
         xcrun simctl bootstatus "$IPHONE_ID" -b
         APP_PATH=$(find build/DerivedData -name "DamageCalc.app" -type d | head -1)
         xcrun simctl install "$IPHONE_ID" "$APP_PATH"
-        xcrun simctl launch "$IPHONE_ID" com.tokyonasu.damagecalc SCREENSHOT_MODE
-        sleep 12
         mkdir -p screenshots
-        xcrun simctl io "$IPHONE_ID" screenshot screenshots/iphone_67.png
+        for MODE in 1 2 3; do
+          xcrun simctl terminate "$IPHONE_ID" com.tokyonasu.damagecalc 2>/dev/null || true
+          sleep 2
+          xcrun simctl launch "$IPHONE_ID" com.tokyonasu.damagecalc SCREENSHOT_MODE_$MODE
+          sleep 12
+          xcrun simctl io "$IPHONE_ID" screenshot "screenshots/iphone_67_$MODE.png"
+        done
         xcrun simctl shutdown "$IPHONE_ID" || true
 
     - name: Build for iPad Simulator
@@ -79,7 +83,7 @@ jobs:
           CODE_SIGNING_ALLOWED=NO \
           | xcpretty || true
 
-    - name: Take iPad Screenshot
+    - name: Take iPad Screenshots
       run: |
         xcrun simctl boot "$IPAD_ID" || true
         xcrun simctl bootstatus "$IPAD_ID" -b
@@ -88,9 +92,13 @@ jobs:
           APP_PATH=$(find build/DerivedData -name "DamageCalc.app" -type d | head -1)
         fi
         xcrun simctl install "$IPAD_ID" "$APP_PATH"
-        xcrun simctl launch "$IPAD_ID" com.tokyonasu.damagecalc SCREENSHOT_MODE
-        sleep 12
-        xcrun simctl io "$IPAD_ID" screenshot screenshots/ipad_129.png
+        for MODE in 1 2 3; do
+          xcrun simctl terminate "$IPAD_ID" com.tokyonasu.damagecalc 2>/dev/null || true
+          sleep 2
+          xcrun simctl launch "$IPAD_ID" com.tokyonasu.damagecalc SCREENSHOT_MODE_$MODE
+          sleep 12
+          xcrun simctl io "$IPAD_ID" screenshot "screenshots/ipad_129_$MODE.png"
+        done
 
     - name: Upload screenshots artifact
       uses: actions/upload-artifact@v4
