@@ -44,7 +44,7 @@ jobs:
 
       - name: Archive
         run: |
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 200))
           echo "Using build number $BUILD_NUMBER"
           xcodebuild archive \
             -project DamageCalc.xcodeproj \
