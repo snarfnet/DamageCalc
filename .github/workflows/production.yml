@@ -10,6 +10,7 @@ concurrency:
 jobs:
   submit-production:
     runs-on: macos-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -23,127 +24,49 @@ jobs:
           fi
           xcodebuild -version
 
-      - name: Install tools
-        run: |
-          brew install xcodegen
-          python3 -m venv .venv
-          . .venv/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install pyjwt cryptography requests
+      - name: Install XcodeGen
+        run: brew install xcodegen
 
-      - name: Write App Store Connect key
+      - name: Set up ASC API Key
         env:
           ASC_API_KEY_CONTENT: ${{ secrets.ASC_API_KEY_CONTENT }}
         run: |
           test -n "$ASC_API_KEY_CONTENT"
-          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          mkdir -p ~/.appstoreconnect/private_keys
           if echo "$ASC_API_KEY_CONTENT" | grep -q "BEGIN PRIVATE KEY"; then
-            printf '%s' "$ASC_API_KEY_CONTENT" > "$HOME/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8"
+            printf '%s' "$ASC_API_KEY_CONTENT" > ~/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8
           else
-            echo "$ASC_API_KEY_CONTENT" | base64 -D > "$HOME/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8"
+            echo "$ASC_API_KEY_CONTENT" | base64 -D > ~/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8
           fi
-          cp "$HOME/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8" /tmp/asc_key.p8
-
-      - name: Import distribution certificate
-        env:
-          CERT_BASE64: ${{ secrets.DIST_CERT_BASE64 }}
-          CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          test -n "$CERT_BASE64"
-          test -n "$KEYCHAIN_PASSWORD"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -t 3600 -u build.keychain
-          echo "$CERT_BASE64" | base64 -D > cert.p12
-          security import cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign || \
-            security import cert.p12 -k build.keychain -P "" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-          security find-identity -v -p codesigning build.keychain
-          rm cert.p12
-
-      - name: Install provisioning profile
-        env:
-          ASC_KEY_ID: WDXGY9WX55
-          ASC_ISSUER_ID: 2be0734f-943a-4d61-9dc9-5d9045c46fec
-          ASC_P8_PATH: /tmp/asc_key.p8
-          PROFILE_NAME: DamageCalc AppStore
-        run: |
-          . .venv/bin/activate
-          python - <<'PY'
-          import base64, os, time
-          from pathlib import Path
-          import jwt, requests
-          key_id = os.environ['ASC_KEY_ID']
-          issuer = os.environ['ASC_ISSUER_ID']
-          p8 = Path(os.environ['ASC_P8_PATH']).read_text()
-          profile_name = os.environ['PROFILE_NAME']
-          def token():
-              now = int(time.time())
-              return jwt.encode({'iss': issuer, 'iat': now, 'exp': now + 1200, 'aud': 'appstoreconnect-v1'}, p8, algorithm='ES256', headers={'kid': key_id})
-          response = requests.get(
-              'https://api.appstoreconnect.apple.com/v1/profiles',
-              headers={'Authorization': 'Bearer ' + token()},
-              params={'filter[name]': profile_name, 'limit': '1'},
-              timeout=60)
-          response.raise_for_status()
-          data = response.json().get('data', [])
-          if not data:
-              raise SystemExit(f'Profile not found: {profile_name}')
-          profile = data[0]
-          content = base64.b64decode(profile['attributes']['profileContent'])
-          out_dir = Path.home() / 'Library' / 'MobileDevice' / 'Provisioning Profiles'
-          out_dir.mkdir(parents=True, exist_ok=True)
-          out_path = out_dir / f"{profile['id']}.mobileprovision"
-          out_path.write_bytes(content)
-          print(f'Installed {profile_name} -> {out_path}')
-          PY
 
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Set build number
-        run: |
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
-          echo "Using build number $BUILD_NUMBER"
-
       - name: Archive
         run: |
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))
+          echo "Using build number $BUILD_NUMBER"
           xcodebuild archive \
             -project DamageCalc.xcodeproj \
             -scheme DamageCalc \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath build/DamageCalc.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=83VGKGSQUH \
-            PROVISIONING_PROFILE_SPECIFIER="DamageCalc AppStore" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8" \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8 \
             -authenticationKeyID WDXGY9WX55 \
             -authenticationKeyIssuerID 2be0734f-943a-4d61-9dc9-5d9045c46fec
 
-      - name: Export IPA
+      - name: Export & Upload
         run: |
           xcodebuild -exportArchive \
             -archivePath build/DamageCalc.xcarchive \
             -exportPath build/export \
             -exportOptionsPlist export_options.plist \
             -allowProvisioningUpdates \
-            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8" \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_WDXGY9WX55.p8 \
             -authenticationKeyID WDXGY9WX55 \
             -authenticationKeyIssuerID 2be0734f-943a-4d61-9dc9-5d9045c46fec
-
-      - name: Upload to App Store Connect
-        run: |
-          IPA_PATH="$(find build/export -name '*.ipa' -print -quit)"
-          test -n "$IPA_PATH"
-          xcrun altool --upload-app \
-            --type ios \
-            --file "$IPA_PATH" \
-            --apiKey WDXGY9WX55 \
-            --apiIssuer 2be0734f-943a-4d61-9dc9-5d9045c46fec
