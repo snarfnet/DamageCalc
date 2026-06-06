@@ -26,6 +26,8 @@ struct ContentView: View {
                     }
                     .padding(18)
                     .padding(.bottom, 76)
+                    .frame(maxWidth: 600)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle("損害賠償計算機")

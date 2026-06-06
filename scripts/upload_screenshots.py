@@ -26,6 +26,11 @@ def upload_screenshot(loc_id, display_type, filepath):
     sets = r.json().get('data', [])
     if sets:
         set_id = sets[0]['id']
+        # Delete existing screenshots before uploading new ones
+        r2 = api('GET', f'/appScreenshotSets/{set_id}/appScreenshots')
+        for ss in r2.json().get('data', []):
+            api('DELETE', f'/appScreenshots/{ss["id"]}')
+            print(f'  Deleted old screenshot {ss["id"]}')
     else:
         r = api('POST', '/appScreenshotSets', json={
             'data': {
@@ -106,5 +111,6 @@ for loc in locs:
         pipad = os.path.join(screenshot_dir, f'ipad_129{suffix}.png')
         if os.path.exists(pipad):
             upload_screenshot(loc_id, 'APP_IPAD_PRO_3GEN_129', pipad)
+            upload_screenshot(loc_id, 'APP_IPAD_PRO_6GEN_129', pipad)
 
 print('Done!')
